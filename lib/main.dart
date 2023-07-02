@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -31,6 +33,21 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+List<dynamic> multipleJsonByteDecoder(Uint8List data) {
+  return utf8
+      .decode(data)
+      .split('\n')
+      .map((e) {
+        try {
+          return jsonDecode(e);
+        } catch (_) {
+          return null;
+        }
+      })
+      .where((e) => e != null)
+      .toList();
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   double? playbackTime;
   Socket? socket;
@@ -39,6 +56,8 @@ class _MyHomePageState extends State<MyHomePage> {
   double? volume;
   double? duration;
   String? mediaTitle;
+  String? subText;
+  String? path;
   String socketAddress = '/tmp/mpvsocket';
   bool timestampRemaining = false;
   bool? paused;
@@ -60,21 +79,8 @@ class _MyHomePageState extends State<MyHomePage> {
         this.socket = socket;
       });
 
-      socket.listen(
-        (event) {
-          final List<dynamic> decodedData = utf8
-              .decode(event)
-              .split('\n')
-              .map((e) {
-                try {
-                  return jsonDecode(e);
-                } catch (_) {
-                  return null;
-                }
-              })
-              .where((e) => e != null)
-              .toList();
-
+      socket.map(multipleJsonByteDecoder).listen(
+        (decodedData) {
           for (final e in decodedData) {
             switch (e) {
               case {
@@ -109,18 +115,30 @@ class _MyHomePageState extends State<MyHomePage> {
                 mediaTitle = data;
               case {
                   'event': 'property-change',
+                  'name': 'sub-text',
+                  'data': final String data,
+                }:
+                subText = data;
+              case {
+                  'event': 'property-change',
                   'name': 'percent-pos',
                   'data': final double data,
                 }:
                 percentPos = data;
+              case {
+                  'event': 'property-change',
+                  'name': 'path',
+                  'data': final String data,
+                }:
+                if (data.startsWith("https://www.youtube.com")) {
+                  path = data.substring(32);
+                }
+                subText = null;
             }
           }
-
           if (decodedData.isNotEmpty) setState(() {});
         },
-        onDone: () {
-          setState(() => this.socket = null);
-        },
+        onDone: () => setState(() => this.socket = null),
       );
 
       socket
@@ -140,10 +158,13 @@ class _MyHomePageState extends State<MyHomePage> {
           "command": ["observe_property", 1, "percent-pos"]
         }))
         ..writeln(jsonEncode({
-          "command": ["observe_property", 1, "metatada"]
+          "command": ["observe_property", 1, "sub-text"]
         }))
         ..writeln(jsonEncode({
           "command": ["observe_property", 1, "media-title"]
+        }))
+        ..writeln(jsonEncode({
+          "command": ["observe_property", 1, "path"]
         }))
         ..flush();
     }).catchError((final e) {
@@ -190,7 +211,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(32),
         child: socket == null
             ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -210,6 +231,38 @@ class _MyHomePageState extends State<MyHomePage> {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Expanded(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (path != null)
+                          Container(
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                colorFilter: const ColorFilter.mode(
+                                    Colors.black54, BlendMode.darken),
+                                image: NetworkImage(
+                                    'https://i.ytimg.com/vi/$path/hq720.jpg'),
+                              ),
+                            ),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.0)),
+                              ),
+                            ),
+                          ),
+                        Center(
+                          child: Text(
+                            subText ?? "",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 38),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -270,7 +323,13 @@ class VolumeSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.volume_up, size: 20),
+        Icon(
+            switch (volume) {
+              final double volume when volume > 50 => Icons.volume_up,
+              final double volume when volume > 25 => Icons.volume_down,
+              _ => Icons.volume_mute,
+            },
+            size: 20),
         SizedBox(
           width: 150,
           child: Slider(
