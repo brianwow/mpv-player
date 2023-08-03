@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(const MyApp());
@@ -295,6 +296,24 @@ class _MyHomePageState extends State<MyHomePage> {
                   Stack(
                     alignment: Alignment.center,
                     children: [
+                      if (path != null)
+                        Positioned(
+                          left: 0,
+                          child: TextButton(
+                            onPressed: () {
+                              socket?.writeln(
+                                  '{"command":["set_property", "pause", true]}');
+                              // https://youtu.be/aXaHB4gGAys?t=3
+                              launchUrl(Uri.https(
+                                  'youtu.be',
+                                  '/$path',
+                                  (timePos != null)
+                                      ? {'t': '${timePos?.toInt()}'}
+                                      : {}));
+                            },
+                            child: const Text("Open in YouTube"),
+                          ),
+                        ),
                       PlayerButton(socket: socket, paused: paused),
                       Positioned(
                         right: 0,
