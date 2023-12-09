@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,6 +19,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'MPV Player',
       theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF722B72),
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
@@ -62,6 +63,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String socketAddress = '/tmp/mpvsocket';
   bool timestampRemaining = false;
   bool? paused;
+  bool? muted;
 
   @override
   void initState() {
@@ -82,6 +84,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
       socket.map(multipleJsonByteDecoder).listen(
         (decodedData) {
+          if (kDebugMode) {
+            print(decodedData);
+          }
           for (final e in decodedData) {
             switch (e) {
               case {
@@ -108,6 +113,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   'data': final bool data,
                 }:
                 paused = data;
+              case {
+                  'event': 'property-change',
+                  'name': 'mute',
+                  'data': final bool data,
+                }:
+                muted = data;
               case {
                   'event': 'property-change',
                   'name': 'media-title',
@@ -154,6 +165,9 @@ class _MyHomePageState extends State<MyHomePage> {
         }))
         ..writeln(jsonEncode({
           "command": ["observe_property", 1, "volume"]
+        }))
+        ..writeln(jsonEncode({
+          "command": ["observe_property", 1, "mute"]
         }))
         ..writeln(jsonEncode({
           "command": ["observe_property", 1, "percent-pos"]
@@ -254,72 +268,84 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                             ),
                           ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Slider(
+                                    value: percentPos ?? 0,
+                                    max: 100.0,
+                                    onChanged: percentPos == null
+                                        ? null
+                                        : (final value) => socket?.writeln(
+                                            '{"command":["set_property","percent-pos",$value]}'),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                GestureDetector(
+                                  onTap: switchTimestampMode,
+                                  child: Text(timestamp),
+                                ),
+                                const SizedBox(width: 16),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 32),
+                              child: Text(
+                                '$mediaTitle',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                if (path != null)
+                                  Positioned(
+                                    left: 0,
+                                    child: TextButton(
+                                      onPressed: () {
+                                        socket?.writeln(
+                                            '{"command":["set_property", "pause", true]}');
+                                        // https://youtu.be/aXaHB4gGAys?t=3
+                                        launchUrl(Uri.https(
+                                            'youtu.be',
+                                            '/$path',
+                                            (timePos != null)
+                                                ? {'t': '${timePos?.toInt()}'}
+                                                : {}));
+                                      },
+                                      child: const Text("Open in YouTube  "),
+                                    ),
+                                  ),
+                                PlayerButton(socket: socket, paused: paused),
+                                Positioned(
+                                  right: 0,
+                                  child: VolumeSlider(
+                                      volume: volume,
+                                      socket: socket,
+                                      muted: muted),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                         Center(
-                          child: Text(
-                            subText ?? "",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 38),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 100),
+                            child: Text(
+                              subText ?? "",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 38),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Slider(
-                          value: percentPos ?? 0,
-                          max: 100.0,
-                          onChanged: percentPos == null
-                              ? null
-                              : (final value) => socket?.writeln(
-                                  '{"command":["set_property","percent-pos",$value]}'),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      GestureDetector(
-                        onTap: switchTimestampMode,
-                        child: Text(timestamp),
-                      ),
-                      const SizedBox(width: 16),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      '$mediaTitle',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      if (path != null)
-                        Positioned(
-                          left: 0,
-                          child: TextButton(
-                            onPressed: () {
-                              socket?.writeln(
-                                  '{"command":["set_property", "pause", true]}');
-                              // https://youtu.be/aXaHB4gGAys?t=3
-                              launchUrl(Uri.https(
-                                  'youtu.be',
-                                  '/$path',
-                                  (timePos != null)
-                                      ? {'t': '${timePos?.toInt()}'}
-                                      : {}));
-                            },
-                            child: const Text("Open in YouTube"),
-                          ),
-                        ),
-                      PlayerButton(socket: socket, paused: paused),
-                      Positioned(
-                        right: 0,
-                        child: VolumeSlider(volume: volume, socket: socket),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -332,26 +358,33 @@ class VolumeSlider extends StatelessWidget {
   const VolumeSlider({
     super.key,
     required this.volume,
+    required this.muted,
     required this.socket,
   });
 
   final double? volume;
+  final bool? muted;
   final Socket? socket;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-            switch (volume) {
-              final double volume when volume > 50 => Icons.volume_up,
-              final double volume when volume > 25 => Icons.volume_down,
-              _ => Icons.volume_mute,
-            },
-            size: 20),
+        IconButton(
+          onPressed: () => socket?.writeln('{"command":["cycle","mute"]}'),
+          icon: Icon(
+              switch ((muted, volume)) {
+                (true, _) => Icons.volume_off,
+                final e when e.$2! > 50 => Icons.volume_up,
+                final e when e.$2! > 25 => Icons.volume_down,
+                _ => Icons.volume_mute,
+              },
+              size: 20),
+        ),
         SizedBox(
           width: 150,
           child: Slider(
+            label: volume?.toInt().toString(),
             divisions: 100,
             value: volume ?? 0,
             max: 150,
