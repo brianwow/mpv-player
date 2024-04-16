@@ -268,6 +268,16 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                             ),
                           ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: IconButton(
+                              onPressed: () {
+                                socket?.writeln('{"command":["quit"]}');
+                                exit(0);
+                              },
+                              icon: const Icon(Icons.close)),
+                        ),
                         Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
