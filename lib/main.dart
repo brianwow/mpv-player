@@ -144,7 +144,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 }:
                 if (data.startsWith("https://www.youtube.com")) {
                   path = data.substring(32);
+                } else if (data.startsWith("https://music.youtube.com")) {
+                  path = data.substring(34);
                 }
+                debugPrint(data);
                 subText = null;
             }
           }
@@ -251,7 +254,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       alignment: Alignment.center,
                       children: [
                         if (path != null)
-                          Container(
+                          DecoratedBox(
                             decoration: BoxDecoration(
                               image: DecorationImage(
                                 colorFilter: const ColorFilter.mode(
@@ -262,7 +265,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                              child: Container(
+                              child: DecoratedBox(
                                 decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.0)),
                               ),
