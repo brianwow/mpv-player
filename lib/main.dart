@@ -146,6 +146,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   path = data.substring(32);
                 } else if (data.startsWith("https://music.youtube.com")) {
                   path = data.substring(34);
+                } else if (data.startsWith("https://youtu.be")) {
+                  path = data.substring(17);
                 }
                 debugPrint(data);
                 subText = null;
@@ -330,7 +332,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                             '/$path',
                                             (timePos != null)
                                                 ? {'t': '${timePos?.toInt()}'}
-                                                : {}));
+                                                : null));
                                       },
                                       child: const Text("Open in YouTube  "),
                                     ),
