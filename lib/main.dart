@@ -230,39 +230,41 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(32),
-        child: socket == null
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TextField(
-                    onChanged: (final value) {
-                      socketAddress = value;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  MaterialButton(
-                    onPressed: _connectSocket,
-                    child: const Text('Connect socket'),
-                  ),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        if (path != null)
-                          DecoratedBox(
+      body: socket == null
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextField(
+                  onChanged: (final value) {
+                    socketAddress = value;
+                  },
+                ),
+                const SizedBox(height: 16),
+                MaterialButton(
+                  onPressed: _connectSocket,
+                  child: const Text('Connect socket'),
+                ),
+              ],
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (path != null)
+                        Positioned.fill(
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
                               image: DecorationImage(
                                 colorFilter: const ColorFilter.mode(
-                                    Colors.black54, BlendMode.darken),
+                                  Colors.black54,
+                                  BlendMode.darken,
+                                ),
                                 image: NetworkImage(
-                                    'https://i.ytimg.com/vi/$path/hq720.jpg'),
+                                  'https://i.ytimg.com/vi/$path/hq720.jpg',
+                                ),
                               ),
                             ),
                             child: BackdropFilter(
@@ -273,9 +275,12 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                             ),
                           ),
-                        Positioned(
-                          top: 0,
-                          right: 0,
+                        ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
                           child: IconButton(
                               onPressed: () {
                                 socket?.writeln('{"command":["quit"]}');
@@ -283,7 +288,10 @@ class _MyHomePageState extends State<MyHomePage> {
                               },
                               icon: const Icon(Icons.close)),
                         ),
-                        Column(
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             Row(
@@ -349,22 +357,22 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ],
                         ),
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 100),
-                            child: Text(
-                              subText ?? "",
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 38),
-                            ),
+                      ),
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 100),
+                          child: Text(
+                            subText ?? "",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 38),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-      ),
+                ),
+              ],
+            ),
     );
   }
 }
