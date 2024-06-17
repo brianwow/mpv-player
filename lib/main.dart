@@ -4,10 +4,24 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+class ColorSchemeProvider extends ChangeNotifier {
+  ImageProvider _imageProvider =
+      const NetworkImage('https://i.ytimg.com/vi/KejJaqnggwc/default.jpg');
+
+  ImageProvider get imageProvider => _imageProvider;
+
+  void changeImageProvider(ImageProvider imageProvider) {
+    _imageProvider = imageProvider;
+    notifyListeners();
+  }
+}
+
 void main() {
-  runApp(const MyApp());
+  runApp(ChangeNotifierProvider<ColorSchemeProvider>(
+      create: (_) => ColorSchemeProvider(), child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -15,16 +29,26 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'MPV Player',
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF722B72),
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(),
-    );
+    return Consumer<ColorSchemeProvider>(builder: (context, provider, child) {
+      return FutureBuilder(
+          future: ColorScheme.fromImageProvider(
+            provider: provider.imageProvider,
+            brightness: Brightness.dark,
+          ),
+          builder: (context, snapshot) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'MPV Player',
+              theme: ThemeData(
+                colorScheme: snapshot.data ?? const ColorScheme.dark(),
+                // colorSchemeSeed: const Color(0xFF722B72),
+                // brightness: Brightness.dark,
+                useMaterial3: true,
+              ),
+              home: const MyHomePage(),
+            );
+          });
+    });
   }
 }
 
@@ -84,9 +108,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
       socket.map(multipleJsonByteDecoder).listen(
         (decodedData) {
-          if (kDebugMode) {
-            print(decodedData);
-          }
+          // if (kDebugMode) {
+          // debugPrint(decodedData.toString());
+          // }
           for (final e in decodedData) {
             switch (e) {
               case {
@@ -149,7 +173,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 } else if (data.startsWith("https://youtu.be")) {
                   path = data.substring(17);
                 }
-                debugPrint(data);
+                Provider.of<ColorSchemeProvider>(context, listen: false)
+                    .changeImageProvider(NetworkImage(
+                        'https://i.ytimg.com/vi/$path/default.jpg'));
+
+                // debugPrint(data);
                 subText = null;
             }
           }
@@ -309,7 +337,14 @@ class _MyHomePageState extends State<MyHomePage> {
                                 const SizedBox(width: 16),
                                 GestureDetector(
                                   onTap: switchTimestampMode,
-                                  child: Text(timestamp),
+                                  child: Text(
+                                    timestamp,
+                                    style: const TextStyle(
+                                      fontFeatures: [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(width: 16),
                               ],
