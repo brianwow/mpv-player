@@ -8,10 +8,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ColorSchemeProvider extends ChangeNotifier {
-  ImageProvider _imageProvider =
-      const NetworkImage('https://i.ytimg.com/vi/KejJaqnggwc/default.jpg');
+  ImageProvider? _imageProvider;
 
-  ImageProvider get imageProvider => _imageProvider;
+  ImageProvider? get imageProvider => _imageProvider;
 
   void changeImageProvider(ImageProvider imageProvider) {
     _imageProvider = imageProvider;
@@ -19,9 +18,35 @@ class ColorSchemeProvider extends ChangeNotifier {
   }
 }
 
+class PlayerStateProvider extends ChangeNotifier {
+  double? _duration;
+  double? _percentPos;
+
+  double? get duration => _duration;
+  double? get percentPos => _percentPos;
+
+  void setDuration(double duration) {
+    _duration = duration;
+    notifyListeners();
+  }
+
+  void setPercentPos(double percentPos) {
+    _percentPos = percentPos;
+    notifyListeners();
+  }
+
+  void resetTime() {
+    _duration = null;
+    _percentPos = null;
+    notifyListeners();
+  }
+}
+
 void main() {
-  runApp(ChangeNotifierProvider<ColorSchemeProvider>(
-      create: (_) => ColorSchemeProvider(), child: const MyApp()));
+  runApp(MultiProvider(providers: [
+    ChangeNotifierProvider(create: (_) => ColorSchemeProvider()),
+    ChangeNotifierProvider(create: (_) => PlayerStateProvider()),
+  ], child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -30,17 +55,21 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<ColorSchemeProvider>(builder: (context, provider, child) {
+      final imageProvider = provider.imageProvider;
       return FutureBuilder(
-          future: ColorScheme.fromImageProvider(
-            provider: provider.imageProvider,
-            brightness: Brightness.dark,
-          ),
+          future: imageProvider == null
+              ? null
+              : ColorScheme.fromImageProvider(
+                  provider: imageProvider,
+                  brightness: Brightness.dark,
+                ),
           builder: (context, snapshot) {
             return MaterialApp(
               debugShowCheckedModeBanner: false,
               title: 'MPV Player',
               theme: ThemeData(
-                colorScheme: snapshot.data ?? const ColorScheme.dark(),
+                colorScheme: snapshot.data ??
+                    const ColorScheme.dark(primary: Colors.grey),
                 // colorSchemeSeed: const Color(0xFF722B72),
                 // brightness: Brightness.dark,
                 useMaterial3: true,
@@ -75,12 +104,9 @@ List<dynamic> multipleJsonByteDecoder(Uint8List data) {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  double? playbackTime;
   Socket? socket;
   double? timePos;
-  double? percentPos;
   double? volume;
-  double? duration;
   String? mediaTitle;
   String? subText;
   String? path;
@@ -124,7 +150,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   'name': 'duration',
                   'data': final double data,
                 }:
-                duration = data;
+                context.read<PlayerStateProvider>().setDuration(data);
               case {
                   'event': 'property-change',
                   'name': 'time-pos',
@@ -160,7 +186,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   'name': 'percent-pos',
                   'data': final double data,
                 }:
-                percentPos = data;
+                context.read<PlayerStateProvider>().setPercentPos(data);
               case {
                   'event': 'property-change',
                   'name': 'path',
@@ -231,11 +257,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   String get timestamp {
     late final String? timePos;
+    final duration = context.watch<PlayerStateProvider>().duration;
+
     if (timestampRemaining) {
       timePos = this.timePos == null
           ? null
           : Duration(
-              seconds: this.timePos!.toInt() - (this.duration?.toInt() ?? 0),
+              seconds: this.timePos!.toInt() - (duration?.toInt() ?? 0),
             ).toString().substring(0, 8);
     } else {
       timePos = this.timePos == null
@@ -243,13 +271,13 @@ class _MyHomePageState extends State<MyHomePage> {
           : Duration(seconds: this.timePos!.toInt()).toString().substring(0, 7);
     }
 
-    final String? duration = this.duration == null
+    final String? timeDuration = duration == null
         ? null
-        : Duration(seconds: this.duration!.toInt()).toString().substring(0, 7);
+        : Duration(seconds: duration.toInt()).toString().substring(0, 7);
 
-    return timePos == null || duration == null
+    return timePos == null || timeDuration == null
         ? '-:--:-- / -:--:--'
-        : '$timePos / $duration';
+        : '$timePos / $timeDuration';
   }
 
   void switchTimestampMode() =>
@@ -257,6 +285,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final percentPos = context.watch<PlayerStateProvider>().percentPos;
+
     return Scaffold(
       body: socket == null
           ? Column(
@@ -484,7 +514,10 @@ class PlayerButton extends StatelessWidget {
           ),
         ),
         IconButton(
-          onPressed: () => socket?.writeln('{"command":["playlist-next"]}'),
+          onPressed: () {
+            socket?.writeln('{"command":["playlist-next"]}');
+            context.read<PlayerStateProvider>().resetTime();
+          },
           icon: const Icon(Icons.skip_next),
         ),
       ],
